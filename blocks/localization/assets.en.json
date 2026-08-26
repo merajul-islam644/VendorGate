@@ -1,0 +1,23 @@
+{
+  "assets.actions": "Actions",
+  "assets.assetTag": "Asset tag",
+  "assets.assignedTo": "Assigned to",
+  "assets.category": "Category",
+  "assets.create": "Add asset",
+  "assets.delete.title": "Delete asset",
+  "assets.edit": "Edit asset",
+  "assets.empty": "No assets found",
+  "assets.filters.any": "Any",
+  "assets.filters.clear": "Clear filters",
+  "assets.filters.empty": "No assets match the current filters.",
+  "assets.filters.maxValue": "Max value",
+  "assets.filters.minValue": "Min value",
+  "assets.filters.toggle": "Filters",
+  "assets.name": "Name",
+  "assets.pagination.rows": "Rows",
+  "assets.search": "Search assets",
+  "assets.status": "Status",
+  "assets.subtitle": "CRUD reference backed by Blocks Data collection Assets.",
+  "assets.title": "Assets",
+  "assets.value": "Value"
+}

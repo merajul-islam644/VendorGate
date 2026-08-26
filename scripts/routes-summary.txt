@@ -1,0 +1,17 @@
+﻿node : 
+At line:1 char:366
++ ... endorGate"; node scripts/scan-routes.mjs > scripts/routes.tsv 2> scri ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Total routes: 663
+  blocks-iam: 119
+  blocks-data: 80
+  blocks-localization: 45
+  blocks-monitor: 16
+  blocks-os: 90
+  blocks-studio: 134
+  blocks-logic: 74
+  blocks-release: 34
+  blocks-utilities: 71
