@@ -1,11 +1,27 @@
 import { javascript } from "@codemirror/lang-javascript";
 import { oneDark } from "@codemirror/theme-one-dark";
 import CodeMirror from "@uiw/react-codemirror";
-import { Clipboard, ClipboardCheck, FileCode2, Loader2, Play, RotateCcw, Square, X } from "lucide-react";
+import {
+  Clipboard,
+  ClipboardCheck,
+  Eye,
+  EyeOff,
+  FileCode2,
+  Loader2,
+  Play,
+  RotateCcw,
+  Square,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActionButton } from "../../shared/ui/ActionButton";
 import { PageHeader } from "../../shared/ui/PageHeader";
-import { runPlaywright, type RunnerLog, type RunnerLogKind } from "./playwrightRunner";
+import {
+  runPlaywright,
+  type HighlightInfo,
+  type RunnerLog,
+  type RunnerLogKind,
+} from "./playwrightRunner";
 import { consumePendingPlaywrightSource } from "./pwPendingSource";
 
 type Script = {
@@ -56,7 +72,7 @@ const SCRIPT_LIBRARY: Script[] = [
   {
     id: "starter",
     label: "Starter walkthrough",
-    code: STARTER_SCRIPT
+    code: STARTER_SCRIPT,
   },
   {
     id: "navigate-audit",
@@ -70,7 +86,7 @@ const firstRow = page.locator(".audit-row").first().locator(".mono").first();
 if (await firstRow.count() > 0) {
   console.log("First cell text:", (await firstRow.textContent())?.trim());
 }
-`
+`,
   },
   {
     id: "language-switcher",
@@ -81,7 +97,7 @@ const sidebar = page.locator(".app-shell-sidebar, .sidebar, aside, [aria-label*=
 console.log("Sidebar visible?", await sidebar.isVisible());
 const brandLink = page.locator(".app-brand, .brand, [aria-label*='brand' i]").first();
 console.log("Brand in DOM?", await brandLink.count() > 0);
-`
+`,
   },
   {
     id: "dom-snapshot",
@@ -96,8 +112,83 @@ for (const tag of ["h2", "h3"]) {
 }
 console.log("Cards on screen:", await page.locator(".pw-editor-card, .pw-output-card").count());
 console.log("Editor lines:", await page.locator(".cm-line").count());
-`
-  }
+`,
+  },
+  {
+    id: "login-flow",
+    label: "Login flow (button check)",
+    code: `// Exercises the login page WITHOUT leaving the app's origin.
+// The submit button kicks off the OIDC redirect via window.location.href,
+// which the in-browser runner sandbox blocks. So this snippet verifies
+// the button is mounted, labeled, and clickable -- not that sign-in
+// actually succeeds. For an end-to-end sign-in test, use the real
+// Playwright runner outside this browser sandbox.
+test("Login button is mounted and clickable", async () => {
+  await page.goto("/login");
+  await page.waitForTimeout(150);
+
+  const submit = page.locator(".auth-submit");
+  await page.expect(submit).toBeVisible();
+  console.log("Submit visible:", await submit.isVisible());
+  console.log("Submit text:", (await submit.textContent())?.trim());
+
+  await submit.click();
+  console.log("Click dispatched -- runner stays on /login because external redirects are sandboxed.");
+});
+`,
+  },
+  {
+    id: "navbar-smoke",
+    label: "Navbar smoke test (topbar controls)",
+    code: `// The AppShell topbar wraps every protected route, so the test stays
+// on /playwright (no goto needed). The runner must be authenticated,
+// otherwise RequireAuth redirects to /login and the topbar never mounts.
+//
+// Topbar buttons in render order -- see src/app/layout/AppShell.tsx:
+//   .sidebar-collapse-toggle  -- sidebar expand/collapse
+//   .icon-button[aria-label^='Theme'] -- cycles system -> light -> dark
+//   NotificationsMenu trigger  -- aria-label "Notifications"
+//   LanguageSwitcher trigger   -- aria-label includes the current language
+//   .user-menu-trigger         -- avatar dropdown
+test("Navbar topbar controls are mounted and clickable", async () => {
+  await page.waitForTimeout(150);
+
+  const sidebarToggle = page.locator(".sidebar-collapse-toggle");
+  await page.expect(sidebarToggle).toBeVisible();
+  console.log("Sidebar toggle label:", await sidebarToggle.getAttribute("aria-label"));
+
+  const themeBtn = page.locator(".icon-button[aria-label^='Theme']");
+  await page.expect(themeBtn).toBeVisible();
+  console.log("Theme label before:", await themeBtn.getAttribute("aria-label"));
+
+  // Theme cycles: system -> light -> dark -> system. The cycle is driven
+  // by the data-theme attribute on <html>, which is what the assertion
+  // reads. Two clicks should be enough to observe a state change from
+  // whatever the current mode is.
+  const before = document.documentElement.dataset.theme ?? "system";
+  await themeBtn.click();
+  await page.waitForTimeout(80);
+  await themeBtn.click();
+  await page.waitForTimeout(80);
+  const after = document.documentElement.dataset.theme ?? "system";
+  console.log("Theme before/after two clicks:", before, "->", after);
+  console.log("Theme label after:", await themeBtn.getAttribute("aria-label"));
+
+  // The remaining controls are dropdown triggers. We only assert they
+  // are mounted and labelled -- clicking would open a popover we don't
+  // need to inspect for a smoke test.
+  const notifications = page.locator("[aria-label='Notifications']");
+  await page.expect(notifications).toBeVisible();
+  console.log("Notifications mounted:", await notifications.count() > 0);
+
+  const langSwitcher = page.locator(".icon-button[aria-label*='language' i], .icon-button[title='Switch language']");
+  console.log("Language switcher mounted:", await langSwitcher.count() > 0);
+
+  const userMenu = page.locator(".user-menu-trigger");
+  console.log("User menu mounted:", await userMenu.count() > 0);
+});
+`,
+  },
 ];
 
 /**
@@ -110,7 +201,7 @@ console.log("Editor lines:", await page.locator(".cm-line").count());
 export function RunSummary({
   counts,
   running,
-  total
+  total,
 }: {
   counts: Partial<Record<RunnerLogKind, number>>;
   running: boolean;
@@ -118,8 +209,13 @@ export function RunSummary({
 }) {
   const passed = counts.expect ?? 0;
   const failed = counts.error ?? 0;
-  const verdict: "pass" | "fail" | "running" | "empty" =
-    running ? "running" : total === 0 ? "empty" : failed === 0 ? "pass" : "fail";
+  const verdict: "pass" | "fail" | "running" | "empty" = running
+    ? "running"
+    : total === 0
+      ? "empty"
+      : failed === 0
+        ? "pass"
+        : "fail";
   const verdictLabel =
     verdict === "pass"
       ? "PASS"
@@ -151,13 +247,18 @@ export function RunSummary({
 }
 
 export function PlaywrightPage() {
-  const [activeScript, setActiveScript] = useState<string>(SCRIPT_LIBRARY[0]!.id);
+  const [activeScript, setActiveScript] = useState<string>(
+    SCRIPT_LIBRARY[0]!.id,
+  );
   const [code, setCode] = useState<string>(SCRIPT_LIBRARY[0]!.code);
   const [logs, setLogs] = useState<RunnerLog[]>([]);
   const [running, setRunning] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [runId, setRunId] = useState(0);
   const [launchedFrom, setLaunchedFrom] = useState<string | null>(null);
+  const [highlightEnabled, setHighlightEnabled] = useState(true);
+  const [currentHighlight, setCurrentHighlight] =
+    useState<HighlightInfo | null>(null);
   const cancelRef = useRef<(() => void) | null>(null);
   const consoleRef = useRef<HTMLDivElement | null>(null);
   /**
@@ -254,6 +355,7 @@ export function PlaywrightPage() {
     logCounterRef.current = 0;
     setRunId((current) => current + 1);
     setRunning(true);
+    setCurrentHighlight(null);
 
     let cancel!: () => void;
     const cancelled = new Promise<void>((resolve) => {
@@ -262,10 +364,18 @@ export function PlaywrightPage() {
     cancelRef.current = cancel;
 
     try {
-      await runPlaywright(code, appendLog, cancelled);
+      await runPlaywright(code, appendLog, cancelled, {
+        onHighlight: highlightEnabled ? setCurrentHighlight : undefined,
+      });
     } finally {
       setRunning(false);
       cancelRef.current = null;
+      // Keep the last highlight on screen for a beat so the user can see
+      // where the run ended, then let the CSS animation finish naturally
+      // by unmounting the overlay.
+      window.setTimeout(() => {
+        if (mountedRef.current) setCurrentHighlight(null);
+      }, 1500);
     }
   }
 
@@ -296,7 +406,8 @@ export function PlaywrightPage() {
   useEffect(() => {
     const node = consoleRef.current;
     if (!node) return;
-    const isAtBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+    const isAtBottom =
+      node.scrollHeight - node.scrollTop - node.clientHeight < 80;
     if (isAtBottom) {
       node.scrollTop = node.scrollHeight;
     }
@@ -312,12 +423,18 @@ export function PlaywrightPage() {
 
   async function copyLogs() {
     const text = logs
-      .map((log) => `[${log.kind}] ${log.text}${log.detail ? `\n${log.detail}` : ""}`)
+      .map(
+        (log) =>
+          `[${log.kind}] ${log.text}${log.detail ? `\n${log.detail}` : ""}`,
+      )
       .join("\n");
     try {
       await navigator.clipboard.writeText(text);
       setCopiedKey("all");
-      window.setTimeout(() => setCopiedKey((current) => (current === "all" ? null : current)), 1500);
+      window.setTimeout(
+        () => setCopiedKey((current) => (current === "all" ? null : current)),
+        1500,
+      );
     } catch {
       // same fallback as the audit page
       const ta = document.createElement("textarea");
@@ -329,7 +446,10 @@ export function PlaywrightPage() {
       try {
         document.execCommand("copy");
         setCopiedKey("all");
-        window.setTimeout(() => setCopiedKey((current) => (current === "all" ? null : current)), 1500);
+        window.setTimeout(
+          () => setCopiedKey((current) => (current === "all" ? null : current)),
+          1500,
+        );
       } finally {
         document.body.removeChild(ta);
       }
@@ -338,6 +458,7 @@ export function PlaywrightPage() {
 
   return (
     <section>
+      {currentHighlight ? <HighlightOverlay info={currentHighlight} /> : null}
       <PageHeader
         title="Playwright Runner"
         subtitle="Run Playwright-style scripts against the live DOM of this app."
@@ -368,9 +489,23 @@ export function PlaywrightPage() {
             />
             <ActionButton
               variant="icon"
+              onClick={() => setHighlightEnabled((value) => !value)}
+              icon={highlightEnabled ? <Eye size={16} /> : <EyeOff size={16} />}
+              title={
+                highlightEnabled ? "Live highlight: on" : "Live highlight: off"
+              }
+            />
+            <ActionButton
+              variant="icon"
               disabled={logs.length === 0}
               onClick={copyLogs}
-              icon={copiedKey === "all" ? <ClipboardCheck size={16} /> : <Clipboard size={16} />}
+              icon={
+                copiedKey === "all" ? (
+                  <ClipboardCheck size={16} />
+                ) : (
+                  <Clipboard size={16} />
+                )
+              }
               title={copiedKey === "all" ? "Copied!" : "Copy output"}
             />
           </div>
@@ -396,7 +531,10 @@ export function PlaywrightPage() {
           </select>
         </label>
         {launchedFrom ? (
-          <span className="audit-pill" title="This snippet was launched from the repo browser.">
+          <span
+            className="audit-pill"
+            title="This snippet was launched from the repo browser."
+          >
             launched from repo
           </span>
         ) : null}
@@ -404,10 +542,14 @@ export function PlaywrightPage() {
           <span className="audit-pill">{counts.log} logs</span>
         ) : null}
         {counts.expect !== undefined ? (
-          <span className="audit-pill audit-pill-pass">{counts.expect} expect pass</span>
+          <span className="audit-pill audit-pill-pass">
+            {counts.expect} expect pass
+          </span>
         ) : null}
         {counts.error !== undefined ? (
-          <span className="audit-pill audit-pill-fail">{counts.error} error{counts.error === 1 ? "" : "s"}</span>
+          <span className="audit-pill audit-pill-fail">
+            {counts.error} error{counts.error === 1 ? "" : "s"}
+          </span>
         ) : null}
       </div>
 
@@ -433,7 +575,7 @@ export function PlaywrightPage() {
                 indentOnInput: true,
                 bracketMatching: true,
                 autocompletion: false,
-                highlightSelectionMatches: true
+                highlightSelectionMatches: true,
               }}
               aria-label="Playwright script source"
               minHeight="320px"
@@ -447,35 +589,91 @@ export function PlaywrightPage() {
             {running ? <Loader2 size={14} className="animate-spin" /> : null}
           </header>
           {logs.length === 0 ? (
-            <div className="pw-empty">No output yet. Click <strong>Run</strong> to execute the snippet.</div>
+            <div className="pw-empty">
+              No output yet. Click <strong>Run</strong> to execute the snippet.
+            </div>
           ) : (
             <>
-              <RunSummary counts={counts} running={running} total={logs.length} />
+              <RunSummary
+                counts={counts}
+                running={running}
+                total={logs.length}
+              />
               <ul className="pw-log-list">
                 {logs.map((log) => (
-                <li key={log.id} className={`pw-log pw-log-${log.kind}`}>
-                  <span className="pw-log-kind">{log.kind}</span>
-                  <span className="pw-log-text">
-                    {log.text}
-                    {log.detail ? (
-                      <pre className="pw-log-detail">
-                        <X
-                          size={12}
-                          style={{ float: "right", cursor: "pointer" }}
-                          onClick={() => setLogs((current) => current.filter((item) => item.id !== log.id))}
-                          aria-label="Dismiss entry"
-                        />
-                        {log.detail}
-                      </pre>
-                    ) : null}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                  <li key={log.id} className={`pw-log pw-log-${log.kind}`}>
+                    <span className="pw-log-kind">{log.kind}</span>
+                    <span className="pw-log-text">
+                      {log.text}
+                      {log.detail ? (
+                        <pre className="pw-log-detail">
+                          <X
+                            size={12}
+                            style={{ float: "right", cursor: "pointer" }}
+                            onClick={() =>
+                              setLogs((current) =>
+                                current.filter((item) => item.id !== log.id),
+                              )
+                            }
+                            aria-label="Dismiss entry"
+                          />
+                          {log.detail}
+                        </pre>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </>
           )}
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Briefly-drawn outline + label that flashes over the element the
+ * runner is about to click or fill. Rendered as a sibling of the rest
+ * of the page (after `<section>` opens) but laid out with
+ * `position: fixed` so it escapes any ancestor transform/overflow.
+ *
+ * While the overlay is on screen we re-read the target's bounding rect
+ * on scroll/resize so the outline tracks moving elements — cheap
+ * because the listeners only attach while a highlight is visible.
+ */
+function HighlightOverlay({ info }: { info: HighlightInfo }) {
+  const [rect, setRect] = useState(info.rect);
+
+  useEffect(() => {
+    setRect(info.rect);
+  }, [info]);
+
+  useEffect(() => {
+    const update = () => {
+      const el = document.querySelector(info.selector);
+      if (el) setRect(el.getBoundingClientRect());
+    };
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [info.selector]);
+
+  return (
+    <div
+      className="pw-highlight"
+      style={{
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      }}
+      data-pw-action={info.action}
+    >
+      <span className="pw-highlight-label">{info.label}</span>
+    </div>
   );
 }

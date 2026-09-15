@@ -137,6 +137,12 @@ async function refreshAccessToken(refreshToken: string): Promise<string | undefi
 // the full IAM user profile with roles/permissions -- and is used
 // separately on the Profile page; it is not a substitute for this check.
 export async function fetchSessionClaims(): Promise<Record<string, unknown> | undefined> {
+  // Local-only dev bypass: skip the IAM userInfo call and pretend we're
+  // signed in so the RequireAuth guard doesn't bounce to /login. Safe to
+  // delete once VITE_BLOCKS_AUTH_BYPASS is off in .env.
+  if (import.meta.env.VITE_BLOCKS_AUTH_BYPASS === "true") {
+    return { sub: "dev-bypass", email: "dev@local", name: "Dev User" };
+  }
   try {
     return await blocksClient.auth.userInfo();
   } catch {

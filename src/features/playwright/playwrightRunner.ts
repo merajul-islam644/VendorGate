@@ -32,6 +32,39 @@ export type RunnerLog = {
   detail?: string;
 };
 
+/**
+ * Side-channel event fired by `Locator.click()` / `Locator.fill()` just
+ * before the action runs. The host UI renders this as a brief overlay
+ * so the user can see which element the runner is about to touch.
+ *
+ * Kept out of the log list — it's a visual signal, not a textual one.
+ */
+export type HighlightInfo = {
+  action: "click" | "fill";
+  selector: string;
+  rect: { top: number; left: number; width: number; height: number };
+  label: string;
+};
+
+/**
+ * Module-level ref so `Locator` action methods can emit without taking
+ * a callback parameter. `runPlaywright` sets this on entry and clears
+ * it on exit (via `restore()`), so post-run calls from a stale
+ * `Locator` reference can't accidentally fire highlights.
+ */
+let onHighlightRef: ((info: HighlightInfo) => void) | null = null;
+
+function emitHighlight(selector: string, action: "click" | "fill", el: Element): void {
+  if (!onHighlightRef) return;
+  const r = el.getBoundingClientRect();
+  onHighlightRef({
+    action,
+    selector,
+    rect: { top: r.top, left: r.left, width: r.width, height: r.height },
+    label: `${action}: ${selector}`
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Locator                                                            */
 /* ------------------------------------------------------------------ */
@@ -65,6 +98,7 @@ export class Locator {
     if (!(el instanceof HTMLElement)) {
       throw new LocatorError(`locator(${this.selector}): not an HTMLElement`);
     }
+    emitHighlight(this.selector, "click", el);
     el.click();
   }
 
@@ -79,6 +113,7 @@ export class Locator {
     if (!proto) {
       throw new LocatorError(`locator(${this.selector}): fill() only works on <input> / <textarea>`);
     }
+    emitHighlight(this.selector, "fill", el);
     const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
     if (!setter) throw new LocatorError("no value setter found on input prototype");
     setter.call(el, text);
@@ -812,9 +847,11 @@ function delay(ms: number): Promise<void> {
 export async function runPlaywright(
   source: string,
   writeLog: (entry: Omit<RunnerLog, "id">) => void,
-  cancelled: Promise<void>
+  cancelled: Promise<void>,
+  options?: { onHighlight?: (info: HighlightInfo) => void }
 ): Promise<void> {
   globalLog = writeLog;
+  onHighlightRef = options?.onHighlight ?? null;
 
   // Mirror the script's console calls into the UI panel. The originals
   // are captured before patching so we can restore them in `finally`,
@@ -848,6 +885,7 @@ export async function runPlaywright(
     console.warn = originals.warn;
     console.error = originals.error;
     globalLog = null;
+    onHighlightRef = null;
   };
 
   const page = new Page();

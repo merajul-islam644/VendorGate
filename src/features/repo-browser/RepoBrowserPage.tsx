@@ -26,18 +26,30 @@ import {
   RotateCcw,
   Square,
   Trash2,
-  X
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useNavigate } from "../../app/providers/NavigationContext";
 import { ActionButton } from "../../shared/ui/ActionButton";
 import { PageHeader } from "../../shared/ui/PageHeader";
-import { playwrightGutter, playwrightGutterTheme, type PlaywrightKind } from "./playwrightGutter";
-import { loadEntries, saveEntries, type EnvEntry } from "../playwright/envStore";
+import {
+  playwrightGutter,
+  playwrightGutterTheme,
+  type PlaywrightKind,
+} from "./playwrightGutter";
+import {
+  loadEntries,
+  saveEntries,
+  type EnvEntry,
+} from "../playwright/envStore";
 import { setPendingPlaywrightSource } from "../playwright/pwPendingSource";
 import { RunSummary } from "../playwright/PlaywrightPage";
-import { runPlaywright, type RunnerLog, type RunnerLogKind } from "../playwright/playwrightRunner";
+import {
+  runPlaywright,
+  type RunnerLog,
+  type RunnerLogKind,
+} from "../playwright/playwrightRunner";
 
 const DEFAULT_OWNER = "merajul-islam644";
 const DEFAULT_REPO = "Login-with-BLOCKS";
@@ -107,7 +119,7 @@ function saveStoredGitHubToken(token: string): void {
 function ghHeaders(token: string): Record<string, string> {
   const base: Record<string, string> = {
     Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28"
+    "X-GitHub-Api-Version": "2022-11-28",
   };
   if (token) {
     // `token` prefix works for both classic PATs (ghp_*) and fine-grained
@@ -144,7 +156,7 @@ function loadStoredRepoRef(): StoredRepoRef | null {
         owner: parsed.owner,
         repo: parsed.repo,
         branch: parsed.branch,
-        path: parsed.path
+        path: parsed.path,
       };
     }
     return null;
@@ -173,7 +185,7 @@ function saveStoredRepoRef(ref: StoredRepoRef): void {
  */
 const PLAYWRIGHT_REPOS: ReadonlyArray<{ owner: string; repo: string }> = [
   { owner: "SELISEdigitalplatforms", repo: "blocks-app-playwright-e2e" },
-  { owner: "playwright", repo: "playwright" }
+  { owner: "playwright", repo: "playwright" },
 ];
 
 type Entry = {
@@ -222,7 +234,12 @@ function childrenOf(flat: Entry[], dirPath: string): Entry[] {
       const childPath = prefix + childName;
       const existing = seen.get(childPath);
       if (!existing || existing.type !== "dir") {
-        seen.set(childPath, { name: childName, path: childPath, type: "dir", size: 0 });
+        seen.set(childPath, {
+          name: childName,
+          path: childPath,
+          type: "dir",
+          size: 0,
+        });
       }
     } else {
       // Skip entries that exactly match dirPath itself (the dir's own blob
@@ -250,7 +267,8 @@ function decodeBase64(content: string): string {
 }
 
 function languageFor(path: string) {
-  if (/\.tsx?$/.test(path)) return [javascript({ typescript: true, jsx: true })];
+  if (/\.tsx?$/.test(path))
+    return [javascript({ typescript: true, jsx: true })];
   if (/\.jsx?$/.test(path)) return [javascript({ jsx: true })];
   return [];
 }
@@ -331,7 +349,11 @@ function findMatchingParen(source: string, openIdx: number): number {
 }
 
 /** Extract the first string literal in `source[start..end]`, or null. */
-function extractFirstStringLiteral(source: string, start: number, end: number): string | null {
+function extractFirstStringLiteral(
+  source: string,
+  start: number,
+  end: number,
+): string | null {
   let i = start;
   while (i < end && /\s/.test(source[i]!)) i++;
   if (i >= end) return null;
@@ -375,7 +397,11 @@ function detectPlaywrightBlocks(source: string): PlaywrightBlock[] {
   while ((match = regex.exec(source)) !== null) {
     const kindStr = match[1]!;
     const kind: BlockKind =
-      kindStr === "test.describe" ? "describe" : kindStr === "test.step" ? "step" : "test";
+      kindStr === "test.describe"
+        ? "describe"
+        : kindStr === "test.step"
+          ? "step"
+          : "test";
 
     let i = regex.lastIndex;
     while (i < source.length && /\s/.test(source[i]!)) i++;
@@ -390,14 +416,16 @@ function detectPlaywrightBlocks(source: string): PlaywrightBlock[] {
     }
 
     const blockSource = source.slice(match.index, closeParen + 1);
-    const name = extractFirstStringLiteral(source, openParen + 1, closeParen) ?? "<anonymous>";
+    const name =
+      extractFirstStringLiteral(source, openParen + 1, closeParen) ??
+      "<anonymous>";
 
     blocks.push({
       kind,
       name,
       startLine: lineNumberAt(source, match.index),
       endLine: lineNumberAt(source, closeParen),
-      source: blockSource
+      source: blockSource,
     });
   }
   return blocks;
@@ -414,14 +442,20 @@ function detectPlaywrightBlocks(source: string): PlaywrightBlock[] {
  * haven't been renamed to a spec convention. */
 function looksLikePlaywrightFile(path: string, source: string): boolean {
   if (/\.(spec|test|playwright)\.(ts|tsx|js|jsx|mjs|cjs)$/.test(path)) {
-    return /from\s+["']@playwright\/test["']/.test(source) || /\btest(?:\.describe|\.step|\()/.test(source);
+    return (
+      /from\s+["']@playwright\/test["']/.test(source) ||
+      /\btest(?:\.describe|\.step|\()/.test(source)
+    );
   }
   // Fallback: any .ts/.js/.tsx/.jsx file that actually looks like
   // Playwright code gets the gutter too. This is gated on the import
   // (strong signal) — alone, `test(` would false-positive on Jest files,
   // so we require the import OR a `test.describe(` block.
   if (/\.(ts|tsx|js|jsx|mjs|cjs)$/.test(path)) {
-    return /from\s+["']@playwright\/test["']/.test(source) || /\btest\.describe\s*\(/.test(source);
+    return (
+      /from\s+["']@playwright\/test["']/.test(source) ||
+      /\btest\.describe\s*\(/.test(source)
+    );
   }
   return false;
 }
@@ -429,7 +463,10 @@ function looksLikePlaywrightFile(path: string, source: string): boolean {
 function isPlaywrightRepo(owner: string, repo: string): boolean {
   const o = owner.trim().toLowerCase();
   const r = repo.trim().toLowerCase();
-  return PLAYWRIGHT_REPOS.some((entry) => entry.owner.toLowerCase() === o && entry.repo.toLowerCase() === r);
+  return PLAYWRIGHT_REPOS.some(
+    (entry) =>
+      entry.owner.toLowerCase() === o && entry.repo.toLowerCase() === r,
+  );
 }
 
 /**
@@ -441,15 +478,20 @@ function isPlaywrightRepo(owner: string, repo: string): boolean {
  * failure (rate limit, 404, parse error) so the caller can decide
  * whether to retry, fall back, or surface an error.
  */
-async function fetchDefaultBranch(owner: string, repo: string, token: string): Promise<string | null> {
+async function fetchDefaultBranch(
+  owner: string,
+  repo: string,
+  token: string,
+): Promise<string | null> {
   const url = `${GITHUB_API}/repos/${owner}/${repo}`;
   try {
     const response = await fetch(url, {
-      headers: ghHeaders(token)
+      headers: ghHeaders(token),
     });
     if (!response.ok) return null;
     const payload = (await response.json()) as { default_branch?: unknown };
-    return typeof payload.default_branch === "string" && payload.default_branch.length > 0
+    return typeof payload.default_branch === "string" &&
+      payload.default_branch.length > 0
       ? payload.default_branch
       : null;
   } catch {
@@ -462,11 +504,16 @@ async function fetchDefaultBranch(owner: string, repo: string, token: string): P
  * `/branches/{branch}` endpoint which returns 200 with branch metadata
  * if the branch exists, 404 if it doesn't. Doesn't pull the whole tree.
  */
-async function branchHasTree(owner: string, repo: string, branch: string, token: string): Promise<boolean> {
+async function branchHasTree(
+  owner: string,
+  repo: string,
+  branch: string,
+  token: string,
+): Promise<boolean> {
   const url = `${GITHUB_API}/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`;
   try {
     const response = await fetch(url, {
-      headers: ghHeaders(token)
+      headers: ghHeaders(token),
     });
     return response.ok;
   } catch {
@@ -489,7 +536,11 @@ async function branchHasTree(owner: string, repo: string, branch: string, token:
  * the repo is private (no anonymous read access), doesn't exist, or
  * we're hitting GitHub's rate limit.
  */
-async function resolveBranch(owner: string, repo: string, token: string): Promise<string | null> {
+async function resolveBranch(
+  owner: string,
+  repo: string,
+  token: string,
+): Promise<string | null> {
   const fromMeta = await fetchDefaultBranch(owner, repo, token);
   if (fromMeta && (await branchHasTree(owner, repo, fromMeta, token))) {
     return fromMeta;
@@ -570,10 +621,16 @@ function parseGitHubRef(input: string): ParsedGitHubRef | null {
   let path: string | undefined;
   // /owner/repo/tree/<branch>[/<subdir>...]
   // /owner/repo/blob/<branch>[/<file>]
-  if ((segments[2] === "tree" || segments[2] === "blob") && segments.length >= 4) {
+  if (
+    (segments[2] === "tree" || segments[2] === "blob") &&
+    segments.length >= 4
+  ) {
     branch = decodeURIComponent(segments[3]!);
     if (segments.length > 4) {
-      path = segments.slice(4).map((s) => decodeURIComponent(s)).join("/");
+      path = segments
+        .slice(4)
+        .map((s) => decodeURIComponent(s))
+        .join("/");
     }
   }
 
@@ -596,7 +653,9 @@ export function RepoBrowserPage() {
   const initialRef = loadStoredRepoRef();
   const [owner, setOwner] = useState(() => initialRef?.owner ?? DEFAULT_OWNER);
   const [repo, setRepo] = useState(() => initialRef?.repo ?? DEFAULT_REPO);
-  const [branch, setBranch] = useState(() => initialRef?.branch ?? DEFAULT_BRANCH);
+  const [branch, setBranch] = useState(
+    () => initialRef?.branch ?? DEFAULT_BRANCH,
+  );
   const [path, setPath] = useState(() => initialRef?.path ?? "");
   const [tree, setTree] = useState<Entry[]>([]);
   const [treeTruncated, setTreeTruncated] = useState(false);
@@ -609,7 +668,7 @@ export function RepoBrowserPage() {
     () =>
       `${initialRef?.owner ?? DEFAULT_OWNER}/${initialRef?.repo ?? DEFAULT_REPO}@${
         initialRef?.branch ?? DEFAULT_BRANCH
-      }`
+      }`,
   );
   // The "Clone" input is decoupled from the toolbar fields -- the
   // user types a URL here, presses Enter (or clicks Clone), and we
@@ -628,7 +687,9 @@ export function RepoBrowserPage() {
   // a refresh restores the auth state without re-pasting. Attached to
   // every outbound api.github.com request to lift us from the 60
   // req/hr anonymous tier to 5000 req/hr.
-  const [githubToken, setGithubToken] = useState<string>(() => loadStoredGitHubToken());
+  const [githubToken, setGithubToken] = useState<string>(() =>
+    loadStoredGitHubToken(),
+  );
   const [githubTokenVisible, setGithubTokenVisible] = useState(false);
   const githubTokenFilled = githubToken.trim().length > 0;
 
@@ -645,7 +706,7 @@ export function RepoBrowserPage() {
   const [envExpanded, setEnvExpanded] = useState(false);
   const envFilledCount = useMemo(
     () => envEntries.filter((entry) => entry.key.trim().length > 0).length,
-    [envEntries]
+    [envEntries],
   );
 
   // Remember the most recent request token so a slow response can't
@@ -778,7 +839,7 @@ export function RepoBrowserPage() {
       const url = `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
       try {
         const response = await fetch(url, {
-          headers: ghHeaders(githubToken)
+          headers: ghHeaders(githubToken),
         });
         if (token !== requestToken.current) return;
         if (!response.ok) {
@@ -805,13 +866,17 @@ export function RepoBrowserPage() {
           // use "commit" for gitlink submodules -- render those as dirs
           // so they're clickable too.
           const entryType =
-            obj.type === "blob" ? "file" : obj.type === "tree" || obj.type === "commit" ? "dir" : null;
+            obj.type === "blob"
+              ? "file"
+              : obj.type === "tree" || obj.type === "commit"
+                ? "dir"
+                : null;
           if (!entryType) continue;
           entries.push({
             name: entryPath.split("/").pop() ?? entryPath,
             path: entryPath,
             type: entryType,
-            size: typeof obj.size === "number" ? obj.size : 0
+            size: typeof obj.size === "number" ? obj.size : 0,
           });
         }
         setTree(entries);
@@ -823,7 +888,7 @@ export function RepoBrowserPage() {
         setState({ kind: "error", message: (err as Error).message });
       }
     },
-    [owner, repo, branch, treeKey, tree.length, githubToken]
+    [owner, repo, branch, treeKey, tree.length, githubToken],
   );
 
   useEffect(() => {
@@ -837,7 +902,9 @@ export function RepoBrowserPage() {
   const pathExists = useMemo(() => {
     if (path === "") return tree.length > 0;
     const prefix = `${path}/`;
-    return tree.some((entry) => entry.path === path || entry.path.startsWith(prefix));
+    return tree.some(
+      (entry) => entry.path === path || entry.path.startsWith(prefix),
+    );
   }, [tree, path]);
 
   function openEntry(entry: Entry) {
@@ -864,18 +931,21 @@ export function RepoBrowserPage() {
     const contentsUrl = `${GITHUB_API}/repos/${owner}/${repo}/contents/${entry.path}?ref=${encodeURIComponent(branch)}`;
     try {
       const response = await fetch(contentsUrl, {
-        headers: ghHeaders(githubToken)
+        headers: ghHeaders(githubToken),
       });
       if (token !== requestToken.current) return;
       if (response.ok) {
         const payload = (await response.json()) as Record<string, unknown>;
         if (token !== requestToken.current) return;
         if (typeof payload.content === "string") {
-          const text = payload.encoding === "base64" ? decodeBase64(payload.content) : payload.content;
+          const text =
+            payload.encoding === "base64"
+              ? decodeBase64(payload.content)
+              : payload.content;
           const file: SelectedFile = {
             path: String(payload.path ?? entry.path),
             size: typeof payload.size === "number" ? payload.size : text.length,
-            text
+            text,
           };
           fileCache.current.set(entry.path, file);
           selectFile(file);
@@ -885,7 +955,11 @@ export function RepoBrowserPage() {
         // Fall through to raw URL on unexpected shape.
       } else if (response.status !== 404) {
         const detail = await describeResponse(response);
-        setState({ kind: "error", message: `Contents request failed for ${entry.path}`, detail });
+        setState({
+          kind: "error",
+          message: `Contents request failed for ${entry.path}`,
+          detail,
+        });
         return;
       }
 
@@ -897,14 +971,18 @@ export function RepoBrowserPage() {
       if (token !== requestToken.current) return;
       if (!rawResponse.ok) {
         const detail = await describeResponse(rawResponse);
-        setState({ kind: "error", message: `Both Contents API and raw URL failed for ${entry.path}`, detail });
+        setState({
+          kind: "error",
+          message: `Both Contents API and raw URL failed for ${entry.path}`,
+          detail,
+        });
         return;
       }
       const text = await rawResponse.text();
       const file: SelectedFile = {
         path: entry.path,
         size: text.length,
-        text
+        text,
       };
       fileCache.current.set(entry.path, file);
       selectFile(file);
@@ -941,7 +1019,11 @@ export function RepoBrowserPage() {
 
   function discardEdits() {
     if (!selected || originalText === null) return;
-    const restored: SelectedFile = { ...selected, text: originalText, size: originalText.length };
+    const restored: SelectedFile = {
+      ...selected,
+      text: originalText,
+      size: originalText.length,
+    };
     fileCache.current.set(selected.path, restored);
     setSelected(restored);
     setDirty(false);
@@ -971,9 +1053,10 @@ export function RepoBrowserPage() {
   function addEnvProperty() {
     const key = draftKey.trim();
     if (!key) return;
-    const id = typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2, 10);
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2, 10);
     setEnvEntries((current) => [...current, { id, key, value: draftValue }]);
     setDraftKey("");
     setDraftValue("");
@@ -982,7 +1065,9 @@ export function RepoBrowserPage() {
   /** Patch a stored entry by id. Used by the inline row inputs. */
   function updateEnvEntry(id: string, patch: Partial<EnvEntry>) {
     setEnvEntries((current) =>
-      current.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry))
+      current.map((entry) =>
+        entry.id === id ? { ...entry, ...patch } : entry,
+      ),
     );
   }
 
@@ -1018,7 +1103,7 @@ export function RepoBrowserPage() {
     const parsed = parseGitHubRef(cloneInput);
     if (!parsed) {
       setCloneError(
-        "Couldn't read that as a GitHub URL. Try https://github.com/owner/repo or owner/repo."
+        "Couldn't read that as a GitHub URL. Try https://github.com/owner/repo or owner/repo.",
       );
       return;
     }
@@ -1039,14 +1124,18 @@ export function RepoBrowserPage() {
     // common defaults (main / master / develop / trunk). If it can't
     // find any working branch, we surface a clear error instead of
     // silently loading a 404.
-    const resolvedBranch = await resolveBranch(parsed.owner, parsed.repo, githubToken);
+    const resolvedBranch = await resolveBranch(
+      parsed.owner,
+      parsed.repo,
+      githubToken,
+    );
     if (resolvedBranch) {
       applyRef(parsed, resolvedBranch);
     } else {
       setCloneError(
         `Couldn't find a working branch for ${parsed.owner}/${parsed.repo}. ` +
           `Tried main / master / develop / trunk. The repo may be private, ` +
-          `empty, or GitHub may be rate-limiting. Type a branch name in the Branch field below to try a specific one.`
+          `empty, or GitHub may be rate-limiting. Type a branch name in the Branch field below to try a specific one.`,
       );
     }
     setCloning(false);
@@ -1069,7 +1158,9 @@ export function RepoBrowserPage() {
 
   const breadcrumbs = useMemo(() => {
     const segments = path ? path.split("/").filter(Boolean) : [];
-    const items: { label: string; path: string }[] = [{ label: repo, path: "" }];
+    const items: { label: string; path: string }[] = [
+      { label: repo, path: "" },
+    ];
     let running = "";
     for (const segment of segments) {
       running = running ? `${running}/${segment}` : segment;
@@ -1083,7 +1174,11 @@ export function RepoBrowserPage() {
     const lang = languageFor(selected.path);
     if (!looksLikePlaywrightFile(selected.path, selected.text)) return lang;
     // Show a Play button in the gutter for each detected block.
-    return [...lang, playwrightGutterTheme, playwrightGutter(launchBlockFromLine)];
+    return [
+      ...lang,
+      playwrightGutterTheme,
+      playwrightGutter(launchBlockFromLine),
+    ];
   }, [selected]);
 
   /**
@@ -1093,7 +1188,10 @@ export function RepoBrowserPage() {
    * AND there's a file open. When both hold, `blocks` lists every
    * detected test/test.describe/test.step call in source order.
    */
-  const playwrightRepoActive = useMemo(() => isPlaywrightRepo(owner, repo), [owner, repo]);
+  const playwrightRepoActive = useMemo(
+    () => isPlaywrightRepo(owner, repo),
+    [owner, repo],
+  );
   const blocks = useMemo(() => {
     if (!selected) return [];
     if (!playwrightRepoActive) return [];
@@ -1156,8 +1254,8 @@ export function RepoBrowserPage() {
         {
           id: infoId,
           kind: "info",
-          text: `▶ running ${block.kind}('${block.name}')`
-        }
+          text: `▶ running ${block.kind}('${block.name}')`,
+        },
       ]);
     }
 
@@ -1177,7 +1275,7 @@ export function RepoBrowserPage() {
       const e = new Error(
         `Run aborted after ${HARD_TIMEOUT_MS / 1000}s. ` +
           `The runner couldn't finish — likely an infinite loop or a hung locator query. ` +
-          `Use locator(...) with a CSS selector for faster, narrower queries.`
+          `Use locator(...) with a CSS selector for faster, narrower queries.`,
       );
       e.name = "TimeoutError";
       try {
@@ -1187,7 +1285,7 @@ export function RepoBrowserPage() {
       }
       writeLog({
         kind: "error",
-        text: `[runner] ${e.message}`
+        text: `[runner] ${e.message}`,
       });
     }, HARD_TIMEOUT_MS);
 
@@ -1214,7 +1312,7 @@ export function RepoBrowserPage() {
       writeLog({
         kind: "error",
         text: `[runner] ${e.name ?? "Error"} ${e.message}`,
-        detail: e.stack
+        detail: e.stack,
       });
       if (dev) {
         // eslint-disable-next-line no-console
@@ -1261,7 +1359,7 @@ export function RepoBrowserPage() {
     // eslint-disable-next-line no-console
     console.log(
       `[rb] launchBlockFromLine line=${lineNumber} detected=${live.length}`,
-      live.map((b) => `${b.kind}('${b.name}')@${b.startLine + 1}`)
+      live.map((b) => `${b.kind}('${b.name}')@${b.startLine + 1}`),
     );
     // Don't rely on `block.startLine + 1 === lineNumber` -- if the user
     // edited the file between gutter render and click, the line numbers
@@ -1276,7 +1374,12 @@ export function RepoBrowserPage() {
     if (!target) {
       if (dev) {
         // eslint-disable-next-line no-console
-        console.warn("[rb] no block for line", lineNumber, "blocks:", live.length);
+        console.warn(
+          "[rb] no block for line",
+          lineNumber,
+          "blocks:",
+          live.length,
+        );
       }
       // Surface the failure so the user knows the click registered
       // even if the line no longer corresponds to a Playwright block.
@@ -1292,8 +1395,8 @@ export function RepoBrowserPage() {
         {
           id,
           kind: "warn",
-          text: `No Playwright block found on line ${lineNumber} (current file has ${live.length} block${live.length === 1 ? "" : "s"}).`
-        }
+          text: `No Playwright block found on line ${lineNumber} (current file has ${live.length} block${live.length === 1 ? "" : "s"}).`,
+        },
       ]);
       return;
     }
@@ -1305,15 +1408,18 @@ export function RepoBrowserPage() {
     // Wrap each block in a `test.step` so the runner logs a clear
     // narrative when the user runs the whole file from one button.
     const wrapped = blocks
-      .map((block, idx) => `await test.step(\`${idx + 1}. ${block.kind} '${block.name.replace(/`/g, "\\`")}'\`, async () => {\n${block.source
-        .split("\n")
-        .map((line) => `  ${line}`)
-        .join("\n")}\n});`)
+      .map(
+        (block, idx) =>
+          `await test.step(\`${idx + 1}. ${block.kind} '${block.name.replace(/`/g, "\\`")}'\`, async () => {\n${block.source
+            .split("\n")
+            .map((line) => `  ${line}`)
+            .join("\n")}\n});`,
+      )
       .join("\n\n");
     setPendingPlaywrightSource({
       source: wrapped,
       label: `${selected.path} · all ${blocks.length} blocks`,
-      autoRun: true
+      autoRun: true,
     });
     navigate("/playwright");
   }
@@ -1405,7 +1511,11 @@ export function RepoBrowserPage() {
           disabled={!cloneInput.trim() || cloning}
           title="Load this repo into the browser"
         >
-          {cloning ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {cloning ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Download size={14} />
+          )}
           {cloning ? "Cloning…" : "Clone"}
         </button>
       </div>
@@ -1413,7 +1523,12 @@ export function RepoBrowserPage() {
         <div className="rb-clone-error">
           <AlertCircle size={14} />
           <span>{cloneError}</span>
-          <button type="button" className="rb-clone-dismiss" onClick={() => setCloneError(null)} aria-label="Dismiss">
+          <button
+            type="button"
+            className="rb-clone-dismiss"
+            onClick={() => setCloneError(null)}
+            aria-label="Dismiss"
+          >
             <X size={12} />
           </button>
         </div>
@@ -1422,15 +1537,24 @@ export function RepoBrowserPage() {
       <div className="rb-toolbar">
         <label className="rb-field rb-field-grow">
           <span>Owner</span>
-          <input value={owner} onChange={(event) => setOwner(event.target.value.trim())} />
+          <input
+            value={owner}
+            onChange={(event) => setOwner(event.target.value.trim())}
+          />
         </label>
         <label className="rb-field rb-field-grow">
           <span>Repo</span>
-          <input value={repo} onChange={(event) => setRepo(event.target.value.trim())} />
+          <input
+            value={repo}
+            onChange={(event) => setRepo(event.target.value.trim())}
+          />
         </label>
         <label className="rb-field">
           <span>Branch</span>
-          <input value={branch} onChange={(event) => setBranch(event.target.value.trim())} />
+          <input
+            value={branch}
+            onChange={(event) => setBranch(event.target.value.trim())}
+          />
         </label>
         <label className="rb-field rb-field-grow">
           <span>Path</span>
@@ -1439,7 +1563,8 @@ export function RepoBrowserPage() {
             placeholder="(root)"
             onChange={(event) => setPathInput(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") setPath(pathInput.trim().replace(/^\/+|\/+$/g, ""));
+              if (event.key === "Enter")
+                setPath(pathInput.trim().replace(/^\/+|\/+$/g, ""));
             }}
           />
         </label>
@@ -1453,7 +1578,10 @@ export function RepoBrowserPage() {
           <GitBranch size={14} /> {repoLabel} <ExternalLink size={12} />
         </a>
         {playwrightRepoActive ? (
-          <span className="rb-pw-badge" title="Playwright outline is enabled for this repo.">
+          <span
+            className="rb-pw-badge"
+            title="Playwright outline is enabled for this repo."
+          >
             <FlaskConical size={12} /> Playwright mode
           </span>
         ) : null}
@@ -1501,8 +1629,12 @@ export function RepoBrowserPage() {
           <header className="rb-card-header">
             <Folder size={14} />
             <span>{path || "(root)"}</span>
-            {state.kind === "loading" ? <Loader2 size={14} className="animate-spin" /> : null}
-            {treeTruncated ? <span className="rb-card-meta">tree truncated</span> : null}
+            {state.kind === "loading" ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : null}
+            {treeTruncated ? (
+              <span className="rb-card-meta">tree truncated</span>
+            ) : null}
           </header>
           {state.kind === "loading" && tree.length === 0 ? (
             <div className="rb-empty">Loading…</div>
@@ -1522,9 +1654,15 @@ export function RepoBrowserPage() {
                       onClick={() => openEntry(entry)}
                       title={entry.path}
                     >
-                      {entry.type === "dir" ? <FolderOpen size={14} /> : <FileCode2 size={14} />}
+                      {entry.type === "dir" ? (
+                        <FolderOpen size={14} />
+                      ) : (
+                        <FileCode2 size={14} />
+                      )}
                       <span className="rb-entry-name">{entry.name}</span>
-                      <span className="rb-entry-meta">{entry.type === "file" ? humanSize(entry.size) : "dir"}</span>
+                      <span className="rb-entry-meta">
+                        {entry.type === "file" ? humanSize(entry.size) : "dir"}
+                      </span>
                     </button>
                   </li>
                 );
@@ -1536,7 +1674,9 @@ export function RepoBrowserPage() {
         <article className="rb-viewer-card">
           <header className="rb-card-header">
             <FileCode2 size={14} />
-            <span>{selected ? selected.path : "Pick a file from the tree"}</span>
+            <span>
+              {selected ? selected.path : "Pick a file from the tree"}
+            </span>
             {selected ? (
               <>
                 {dirty ? (
@@ -1575,7 +1715,7 @@ export function RepoBrowserPage() {
                   highlightActiveLineGutter: true,
                   bracketMatching: true,
                   highlightSelectionMatches: true,
-                  autocompletion: false
+                  autocompletion: false,
                 }}
                 aria-label={`Contents of ${selected.path}`}
                 height="100%"
@@ -1584,7 +1724,9 @@ export function RepoBrowserPage() {
               <div className="rb-placeholder">
                 <FileCode2 size={28} />
                 <p>Click a file on the left to load it here.</p>
-                <small>Editor uses CodeMirror with one-dark syntax highlighting.</small>
+                <small>
+                  Editor uses CodeMirror with one-dark syntax highlighting.
+                </small>
               </div>
             )}
           </div>
@@ -1596,7 +1738,8 @@ export function RepoBrowserPage() {
           <header className="rb-card-header">
             <ListChecks size={14} />
             <span>
-              Test blocks · {blocks.length} {blocks.length === 1 ? "block" : "blocks"}
+              Test blocks · {blocks.length}{" "}
+              {blocks.length === 1 ? "block" : "blocks"}
             </span>
             <span className="rb-card-meta">
               {blocks.filter((b) => b.kind === "test").length} test
@@ -1618,8 +1761,14 @@ export function RepoBrowserPage() {
           </header>
           <ul className="rb-outline">
             {blocks.map((block, idx) => (
-              <li key={`${block.startLine}-${idx}`} className={`rb-outline-row rb-outline-${block.kind}`}>
-                <span className="rb-outline-line" title={`starts at line ${block.startLine + 1}`}>
+              <li
+                key={`${block.startLine}-${idx}`}
+                className={`rb-outline-row rb-outline-${block.kind}`}
+              >
+                <span
+                  className="rb-outline-line"
+                  title={`starts at line ${block.startLine + 1}`}
+                >
                   L{block.startLine + 1}
                 </span>
                 <span className="rb-outline-kind">{block.kind}</span>
@@ -1670,7 +1819,11 @@ export function RepoBrowserPage() {
                 className="rb-env-toggle"
                 onClick={() => setEnvValuesHidden((current) => !current)}
                 aria-label={envValuesHidden ? "Reveal values" : "Hide values"}
-                title={envValuesHidden ? "Reveal values in the rows" : "Hide values in the rows"}
+                title={
+                  envValuesHidden
+                    ? "Reveal values in the rows"
+                    : "Hide values in the rows"
+                }
               >
                 {envValuesHidden ? <Eye size={12} /> : <EyeOff size={12} />}
                 {envValuesHidden ? " Reveal" : " Hide"}
@@ -1699,7 +1852,9 @@ export function RepoBrowserPage() {
                 <KeyRound size={14} />
                 <span>GitHub Personal Access Token</span>
                 <span className="rb-card-meta">
-                  {githubTokenFilled ? "authed · 5000 req/hr" : "anonymous · 60 req/hr"}
+                  {githubTokenFilled
+                    ? "authed · 5000 req/hr"
+                    : "anonymous · 60 req/hr"}
                 </span>
               </header>
               <div className="rb-token-row">
@@ -1719,10 +1874,16 @@ export function RepoBrowserPage() {
                   type="button"
                   className="rb-env-toggle"
                   onClick={() => setGithubTokenVisible((current) => !current)}
-                  aria-label={githubTokenVisible ? "Hide token" : "Reveal token"}
+                  aria-label={
+                    githubTokenVisible ? "Hide token" : "Reveal token"
+                  }
                   title={githubTokenVisible ? "Hide token" : "Reveal token"}
                 >
-                  {githubTokenVisible ? <EyeOff size={12} /> : <Eye size={12} />}
+                  {githubTokenVisible ? (
+                    <EyeOff size={12} />
+                  ) : (
+                    <Eye size={12} />
+                  )}
                   {githubTokenVisible ? " Hide" : " Reveal"}
                 </button>
                 {githubTokenFilled ? (
@@ -1749,7 +1910,8 @@ export function RepoBrowserPage() {
                 >
                   github.com/settings/tokens
                 </a>{" "}
-                (no scopes needed for public repos). Stored only in this browser.
+                (no scopes needed for public repos). Stored only in this
+                browser.
               </span>
             </section>
 
@@ -1819,7 +1981,9 @@ export function RepoBrowserPage() {
                     <input
                       className="rb-env-row-key"
                       value={entry.key}
-                      onChange={(event) => updateEnvEntry(entry.id, { key: event.target.value })}
+                      onChange={(event) =>
+                        updateEnvEntry(entry.id, { key: event.target.value })
+                      }
                       spellCheck={false}
                       autoCapitalize="characters"
                       autoCorrect="off"
@@ -1830,7 +1994,9 @@ export function RepoBrowserPage() {
                       className="rb-env-row-value"
                       value={entry.value}
                       type={envValuesHidden ? "password" : "text"}
-                      onChange={(event) => updateEnvEntry(entry.id, { value: event.target.value })}
+                      onChange={(event) =>
+                        updateEnvEntry(entry.id, { value: event.target.value })
+                      }
                       spellCheck={false}
                       autoCapitalize="off"
                       autoCorrect="off"
@@ -1869,23 +2035,41 @@ export function RepoBrowserPage() {
         aria-hidden={!inlineDrawerOpen}
         aria-label="Run output"
       >
-        <div className="rb-run-backdrop" onClick={() => setInlineDrawerOpen(false)} aria-hidden="true" />
+        <div
+          className="rb-run-backdrop"
+          onClick={() => setInlineDrawerOpen(false)}
+          aria-hidden="true"
+        />
         <aside className="rb-run-panel">
           <header className="pw-card-header rb-run-header">
             <button
               type="button"
               className="rb-run-toggle"
               onClick={() => setInlineDrawerCollapsed((current) => !current)}
-              aria-label={inlineDrawerCollapsed ? "Expand run output" : "Collapse run output"}
+              aria-label={
+                inlineDrawerCollapsed
+                  ? "Expand run output"
+                  : "Collapse run output"
+              }
               aria-expanded={!inlineDrawerCollapsed}
               title={inlineDrawerCollapsed ? "Expand" : "Collapse"}
             >
-              {inlineDrawerCollapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {inlineDrawerCollapsed ? (
+                <ChevronUp size={14} />
+              ) : (
+                <ChevronDown size={14} />
+              )}
             </button>
             <Play size={14} />
             <span className="rb-run-label">{inlineLabel ?? "Run output"}</span>
-            {inlineRunning ? <Loader2 size={14} className="animate-spin" /> : null}
-            <RunSummary counts={inlineCounts} running={inlineRunning} total={inlineLogs.length} />
+            {inlineRunning ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : null}
+            <RunSummary
+              counts={inlineCounts}
+              running={inlineRunning}
+              total={inlineLogs.length}
+            />
             <div className="rb-run-header-actions">
               {inlineRunning ? (
                 <button
@@ -1941,7 +2125,7 @@ export function RepoBrowserPage() {
                             style={{ float: "right", cursor: "pointer" }}
                             onClick={() =>
                               setInlineLogs((current) =>
-                                current.filter((item) => item.id !== log.id)
+                                current.filter((item) => item.id !== log.id),
                               )
                             }
                             aria-label="Dismiss entry"
